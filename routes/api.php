@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ForgotPasswordController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -17,6 +18,8 @@ use App\Http\Controllers\AuthController;
 Route::group(['prefix' => 'auth'], function () {
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login', [AuthController::class, 'login']);
+    Route::post('forget', [ForgotPasswordController::class, 'forgot_password']);
+    Route::post('reset', [ForgotPasswordController::class, 'resetPassword']);
 
     Route::group(['middleware' => 'auth:sanctum'], function() {
       Route::put('updateuser/{id}', [AuthController::class, 'update']);

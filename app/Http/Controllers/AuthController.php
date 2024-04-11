@@ -5,6 +5,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use Validator;
+use App\Mail\WelcomeEmail;
+use Illuminate\Support\Facades\Mail;
 
 class AuthController extends Controller
 {
@@ -51,13 +53,15 @@ class AuthController extends Controller
         $user = new User($user_array);
 
         if($user->save()){
-            /*$tokenResult = $user->createToken('Personal Access Token');
-            $token = $tokenResult->plainTextToken;*/
-
+            Auth::login($user);
+            $tokenResult = $user->createToken('Personal Access Token');
+            $token = $tokenResult->plainTextToken;
+            $this->sendEmail($request->email, $user);
             return response()->json([
-            'message' => 'Successfully created user!',
-            'status' => 'success',
-            // 'accessToken'=> $token,
+                'message' => 'Successfully created user!',
+                'status' => 'success',
+                'accessToken'=> $token,
+                'user_details' => $user,
             ],201);
         }
         else{
@@ -66,6 +70,12 @@ class AuthController extends Controller
                 'status' => 'error',
             ]);
         }
+    }
+
+    public function sendEmail($email, $user)
+    {
+        Mail::to($email)->send(new WelcomeEmail($user));
+        return 'Email sent successfully!';
     }
 
     /**
@@ -189,6 +199,38 @@ class AuthController extends Controller
         'message' => 'Successfully logged out'
         ]);
 
+    }
+
+    private function sendResetEmail($email, $token)
+    {
+        try {
+            $user = DB::table('users')->where('email', $email)->select('fname','lname', 'email')->first();
+            $link = config('base_url') . 'password/reset/' . $token . '?email=' . urlencode($user->email);
+            $image_url = asset('front_assets/images/feature-ico-01.png');
+            $email = $user->email;
+            $url =   asset('forgot-password/'.$token);
+            $html = "<!DOCTYPE html> <html><body> <div class='card'> <div style='text-align:center; color: #666;font-size: 24px;margin: 0 0 25px;padding-top: 20px;font-weight: bold;'>Wit Riot</div> <img src='".$image_url."' style='display: block; margin-left: auto; margin-right: auto;'> <div style='text-align:center; font-size: 16px;'>Your register email-id is <a href='".$email."' target='_blank'>'".$email."'</a></div> <p style='text-align:center; color: #666; font-size: 16px; padding: 10px 0;'>Please click on the button below or paste this URL into your address bar to reset your password:</p><a style='text-align:center; font-size:16px;' href='".$url."'>'".$url."'</a> <div style='text-align:center; padding-top:20px'><a href='".$url."'><button style='background: #e5307f;text-align:center;color: #fff;border-radius: 50px; font-size:18px;padding: 10px 40px;display: inline-block;border: none;'>Reset Password</button></a></p> </div> </body> </html>";
+            $apikey ="3E56659E68C0B7113C25285798C7E2E0C7675D6B9CA413442288EF0EAEE291D5BEEEEB3D0A40D812E44A6F052EA2F8DB";
+            $curl = curl_init();
+            curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://api.elasticemail.com/v2/email/send',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => array('apikey' => $apikey,'subject' => 'ForgetPassword','from' => 'jeremy@witriot.com','to' => $email,'bodyHtml' => $html,'isTransactional' => 'true'),
+            ));
+
+            $response = curl_exec($curl);
+            curl_close($curl);
+            //Here send the link with CURL with an external email API 
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 
 }
